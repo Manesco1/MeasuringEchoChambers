@@ -1,0 +1,811 @@
+---
+title: "Analysis"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyr)
+library(dplyr)
+library(igraph)
+library(DescTools)
+library(GGally)
+library(ggplot2)
+library(datawizard)
+library(DirectedClustering)
+library(intergraph)
+library(data.table)
+library(xtable)
+library(ggpubr)
+library(rempsyc)
+library(schoRsch)
+library(kableExtra)
+library(ggpmisc)
+library(broom)
+```
+
+# Create Network objects
+```{r}
+## Create directed graphs
+
+totsubs_list <- list("socialism","LateStageCapitalism","SandersForPresident","antiwork","democrats","Conservative","Libertarian","The_Mueller","neoliberal","Republican","Foodforthought","geopolitics","moderatepolitics","PoliticalDiscussion","politics", "MonsterHunter","chelseafc","GlobalOffensive","ShingekiNoKyojin","XboxSeriesX","Accounting","woodworking","okbuddychicanery","LosAngeles","gadgets","realhousewives","travel","Watches","MechanicAdvice","Amd")
+
+
+for(sub in totsubs_list) {
+  edges <- read.csv(paste("Edges_",sub,".csv",sep=""))
+  nodes <- read.csv(paste("Nodes_",sub,".csv",sep=""))
+  assign(paste0("g_", sub), graph_from_data_frame(edges, directed=T, vertices = nodes))
+}
+
+## Create undirected graphs
+
+for(sub in totsubs_list) {
+  edges <- read.csv(paste("Edges_",sub,".csv",sep=""))
+  nodes <- read.csv(paste("Nodes_",sub,".csv",sep=""))
+  assign(paste("g_", sub,"_ud",sep=""), graph_from_data_frame(edges, directed=F, vertices = nodes))
+}
+
+```
+
+# Functions 
+```{r}
+# Gini coefficient
+Gini_sub <- function(subreddit) {
+
+fulldata <- read.csv(subreddit)
+
+countcomms <- tally(group_by(fulldata, author))
+
+cc4 <- countcomms[countcomms$n > 4,]
+
+Gini(cc4$n, unbiased=F)
+}
+
+
+# Reciprocity 
+
+rho_calc <- function(g){
+  
+r <- igraph::reciprocity(g)
+a <- ecount(g)/(vcount(g)*(vcount(g)-1))
+rho <- (r-a)/(1-a)
+return(rho)
+
+}
+
+# Rescale 
+RS <- function(x){
+  rescale(x, to=c(0,1))
+}
+
+```
+
+# Indicators 
+
+## Gini coefficient
+```{r}
+Sublist <- list()
+GiniCoefficient <- list()
+
+for (sub in totsubs_list) {
+  Sublist <- append(Sublist, sub)
+  GiniCoefficient <- append(GiniCoefficient, Gini_sub(paste(sub,".csv",sep="")))
+}
+
+# Create Dataframe 
+df_ind <- data.frame(Subreddit=unlist(Sublist), Gini=unlist(GiniCoefficient))
+```
+
+## Reciprocity
+
+```{r}
+rec <- list()
+for (sub in totsubs_list) {
+  rec <- append(rec, rho_calc(eval(parse(text=paste("g_",sub,sep="")))))
+}
+
+df_ind$Reciprocity<- unlist(rec)
+
+
+```
+
+## Degree Centrality
+
+```{r}
+deg <- list()
+for (sub in totsubs_list) {
+  deg <- append(deg, mean(degree(eval(parse(text=paste("g_",sub,sep=""))))))
+}
+df_ind$Degree <- unlist(deg)
+
+df_ind$Degree %>% hist()
+
+```
+
+## Clustering
+
+```{r}
+cluster <- list()
+for (sub in totsubs_list) {
+  cluster <- append(cluster, transitivity(type="global", eval(parse(text=paste("g_",sub,"_ud",sep="")))))
+}
+df_ind$Cluster <- unlist(cluster)
+
+df_ind$Cluster_sq <- sqrt(df_ind$Cluster)
+
+# Remove original Cluster measure
+df_ind <- subset(df_ind, select=-(Cluster))
+
+```
+
+## Size (check)
+```{r}
+size <- list()
+for (sub in totsubs_list) {
+  size<- append(size, length(eval(parse(text=paste("g_",sub,sep="")))))
+}
+
+df_ind$Size <- unlist(size)
+
+```
+
+## Summary Table A.1
+
+```{r}
+rnd3 <- function(x){
+  round(x,digits=3)
+}
+
+dftab <- data.frame(psych::describe(df_ind))
+dftab <- dftab[-c(1,6),]
+
+rownames(dftab) <- c("Gini","Reciprocity","Degree","Clustering Coefficient (Sqrt)")
+
+dftab <- subset(dftab, select=c(3,4,5,8,9,11))
+
+colnames(dftab) <- c("Mean", "SD", "Median", "Min", "Max", "Skew")
+
+dftab[1:6] <- lapply(dftab[1:6], rnd3)
+
+kable(dftab, booktabs=T,linesep="", format="latex", caption="Indicators, Descriptive Statistics") %>%
+kable_styling(position="center", full_width = F)# %>% save_kable("TableDesc1.tex") 
+
+```
+
+## Indicator Statistics
+
+```{r}
+summary(df_ind$Reciprocity)
+sd(df_ind$Reciprocity)
+df_ind[which.min(df_ind$Reciprocity),]
+df_ind[which.max(df_ind$Reciprocity),]
+
+summary(df_ind$Cluster_sq)
+sd(df_ind$Cluster_sq)
+df_ind[which.min(df_ind$Cluster_sq),]
+df_ind[which.max(df_ind$Cluster_sq),]
+
+df_ind$Cluster <- unlist(cluster)
+summary(df_ind$Cluster)
+sd(df_ind$Cluster)
+df_ind[which.min(df_ind$Cluster),]
+df_ind[which.max(df_ind$Cluster),]
+df_ind <- subset(df_ind, select=-(Cluster))
+
+summary(df_ind$Degree)
+sd(df_ind$Degree)
+df_ind[which.min(df_ind$Degree),]
+df_ind[which.max(df_ind$Degree),]
+
+summary(df_ind$Gini)
+sd(df_ind$Gini)
+df_ind[which.min(df_ind$Gini),]
+df_ind[which.max(df_ind$Gini),]
+
+```
+
+
+
+### Size Distribution
+
+```{r}
+# approx optimal bandwidth
+
+iqr_size <- IQR(df_ind$Size)
+
+binwidth <- 2 * iqr_size / (length(df_ind$Size)^(1/3))
+ggplot(df_ind, aes(x=Size)) + geom_histogram(binwidth = 2000, color="#FFFFFF", fill="#4c72b0") + geom_vline(xintercept = mean(df_ind$Size), color="#002147", linetype="dashed", linewidth=0.8)+
+  annotate("text", x=(mean(df_ind$Size)+400 ), y=12, label=paste("Mean =", round(mean(df_ind$Size),3)), 
+           color="#002147", size=4.5, vjust=1, hjust=0) + 
+    geom_vline(xintercept = median(df_ind$Size), color="blue", linetype="dashed", linewidth=0.8) +  annotate("text", x=(median(df_ind$Size)-5100), y=12, label=paste("Median =", round(median(df_ind$Size),3)), 
+           color="blue", size=4.5, vjust=1, hjust=0) 
+
+df_ind[which.min(df_ind$Size),]
+
+
+
+```
+
+
+# Correlations
+
+```{r}
+lowerFn <- function(data, mapping, method = "lm", method2="lm", ...) {
+  p <- ggplot(data = data, mapping = mapping) +
+    geom_point(colour = "black") +
+    geom_smooth(method = method, color = "red",fill="red", ...)+
+    geom_smooth(method= method2, color="blue",fill="blue",...) +     stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")),
+                 formula = y ~ x,
+                 label.x.npc = "left", label.y.npc = 0.99,
+                 parse = TRUE)
+  p
+}
+dfcp <- df_ind
+names(dfcp)[5] <- "Clustering \nCoefficient(sqrt)"
+
+#tiff("indcorplot1.tiff", units="in", width=8, height=5, res=300)
+g <-  ggpairs(dfcp, columns = c(2:(ncol(dfcp)-1)), lower = list(continuous = wrap(lowerFn, method = "loess",method2="lm"))) + theme_bw() + 
+  theme(strip.text.y = element_text(size = 8))
+g
+
+#dev.off()
+
+#g2 <-  ggpairs(df_rs, columns = c(2:ncol(df_rs)), lower = list(continuous = wrap(lowerFn, method = "loess",method2="lm")))
+#g2
+```
+
+
+# Rescale and Create Index
+
+```{r}
+df_ind$Size <- as.numeric(df_ind$Size)
+df_ind2<- subset(df_ind, select=-c(Cluster))
+df_rs <- df_ind2
+
+df_rs
+df_rs$Gini <- as.numeric(RS(df_rs$Gini))
+df_rs$Reciprocity <- as.numeric(RS(df_rs$Reciprocity))
+df_rs$Degree <- as.numeric(RS(df_rs$Degree))
+df_rs$Cluster_sq <- as.numeric(RS(df_rs$Cluster_sq))
+df_rs$Size <- as.numeric(RS(df_rs$Size))
+
+
+df_rs$EC_Index <- (df_rs$Gini + df_rs$Reciprocity + df_rs$Degree + df_rs$Cluster_sq) /4
+
+
+
+summary(df_rs$EC_Index)
+
+#tiff("indcorplot2.tiff", units="in", width=8, height=5, res=300)
+
+
+#g2 <-  ggpairs(df_rs, columns = c(2:5,7), lower = list(continuous = wrap(lowerFn, method = "loess",method2="lm")))
+#g2
+
+#dev.off()
+
+
+df_rs[which.max(df_rs$EC_Index),]
+df_rs[which.min(df_rs$EC_Index),]
+
+
+
+```
+
+## Code type and ideology
+
+```{r}
+df_rs$type <- c("P","P","P","P","P","P","P","P","P","P","P","P","P","P","P","NP","NP","NP","NP","NP","NP","NP","NP","NP","NP","NP","NP","NP","NP","NP")
+
+df_rs$ideology <- c("L","L","L","L","L","R","R","R","R","R","N","N","N","N","N","NP","NP","NP","NP","NP","NP","NP","NP","NP","NP","NP","NP","NP","NP","NP")
+
+```
+
+
+## Divide into parwise comparisons
+```{r}
+df_L_R <- df_rs[df_rs$ideology=="L" | df_rs$ideology=="R",]
+
+df_L_NP <- df_rs[df_rs$ideology=="L" | df_rs$ideology=="NP",]
+
+df_L_N <- df_rs[df_rs$ideology=="L" | df_rs$ideology=="N",]
+
+df_N_NP <- df_rs[df_rs$ideology=="N" | df_rs$ideology=="NP",]
+
+df_N_R <- df_rs[df_rs$ideology=="N" | df_rs$ideology=="R",]
+
+df_NP_R <- df_rs[df_rs$ideology=="NP" | df_rs$ideology=="R",]
+
+
+```
+
+## Index Descriptive statistics
+
+```{r}
+
+sub_indices <- df_rs[,c("EC_Index", "Reciprocity","Gini","Degree","Cluster_sq")]
+
+sub_indices
+colnames(sub_indices) <- c("Echo Chamber Index","Reciprocity","Gini","Degree","Clustering \nCoefficient (Square Root)")
+
+dftab2 <- data.frame(psych::describe(df_rs))
+
+df_rs
+dftab2
+dftab2 <- dftab2[-c(1,6,8,9),]
+dftab2 <- dftab2[c(5,1,2,3,4),]
+dftab2
+
+
+rownames(dftab2) <- c("Echo Chamber Index", "Gini","Reciprocity","Degree","Clustering \nCoefficient (sqrt)")
+
+dftab2 <- subset(dftab2, select=c(3,4,5,8,9,11))
+
+dftab2
+
+
+ecicor <- as.data.frame(cor(df_rs[,-c(1,6,8,9)], df_rs$EC_Index))
+
+dftab2<- subset(dftab2, select=-7)
+dftab2
+dftab2$ecicor <- ecicor[c(5,1,2,3,4),1]
+
+colnames(dftab2) <- c("Mean", "SD", "Median", "Min", "Max", "Skew", "ECI Correlation")
+
+
+
+cor.test(df_rs$Gini, df_rs$EC_Index) #***
+cor.test(df_rs$Reciprocity, df_rs$EC_Index) #***
+cor.test(df_rs$Degree, df_rs$EC_Index) #***
+cor.test(df_rs$Cluster_sq, df_rs$EC_Index) #***
+
+kable(dftab2, booktabs=T,linesep="", format="latex", caption="Index and Rescaled Indicators, Descriptive Statistics", digits=3) %>%
+kable_styling(position="center", full_width = F) %>% save_kable("TableDesc2v2.tex") 
+```
+
+## Figure 5
+```{r}
+
+#tiff("ECIDistribution.tiff", units="in", width=8, height=5, res=300)
+ggplot(df_rs, aes(EC_Index)) + geom_histogram(aes(y=after_stat(density)), binwidth = density(df_rs$EC_Index)$bw,  alpha=1, fill="#4c72b0") + geom_density(fill="lightblue", alpha=0.6, color="darkblue") + theme_bw() + ggtitle("Echo Chamber Index Distribution") +  theme(plot.title = element_text(hjust = 0.5)) + ylab("Density") + xlab("Echo Chamber Index")
+#dev.off()
+
+```
+
+## Size Correlation Table (Table 5)
+```{r}
+# Size Correlation
+
+df_sizecor <- df_rs
+
+df_sizecor$ClusteringCoeff <- unlist(cluster)
+df_sizecor$ClusteringCoeff <- as.numeric(RS(df_sizecor$ClusteringCoeff))
+
+ind <- c("Reciprocity", "Gini", "ClusteringCoeff","Cluster_sq", "Degree", "EC_Index")
+
+est <- list()
+pval<- list()
+varname <- list()
+for (var in ind) {
+  test_result <- cor.test(df_sizecor$Size, df_sizecor[[var]], method = "pearson")
+  est <- append(est, test_result$estimate)
+  varname <- append(varname, var)
+  pval <- append(pval, test_result$p.value)
+}
+
+
+sizecors <- data.frame(Variable = unlist(varname), Correlation = unlist(est), P.value= unlist(pval))
+
+colnames(sizecors) <- c("Variable","Correlation w.r.t Size", "P-value")
+
+kable(sizecors, booktabs=T,linesep="", format="latex", digits=3) %>%
+kable_styling(position="center")# %>% save_kable("SizeCorrelationTable.tex")
+```
+
+
+# Hypothesis Testing 
+
+## H1
+```{r}
+df_rs$EC_Index <- as.numeric(df_rs$EC_Index)
+
+df_P <- df_rs[df_rs$type=="P",]
+df_NP <- df_rs[df_rs$type=="NP",]
+
+
+result <- t.test(EC_Index ~ type, data = df_rs)
+dfttesttab <- data.frame(
+  statistic = result$statistic,
+  p_value = result$p.value,
+  conf_int_low = result$conf.int[1],
+  conf_int_high = result$conf.int[2]
+)
+
+# non-parametric test 
+
+wilcox.test(df_P$EC_Index, df_NP$EC_Index)
+
+# check that variances are similaar
+var(df_NP$EC_Index)
+var(df_P$EC_Index)
+
+# t-test result table
+kable(dfttesttab , caption = "T-test Results", booktabs = TRUE, format="latex", linesep="") %>% 
+kable_styling(position = "center")# %>% save_kable("TTestTab.tex")
+```
+
+### Figure 6
+```{r}
+#tiff("Boxplot1.tiff", units="in", width=8, height=5, res=300)
+
+ggboxplot(df_rs, x = "type", y = "EC_Index",
+          ylab = "EC Index", xlab = "Type", color="type", palette= c("#FC4E07", "darkgrey"), add="jitter") + theme_bw() + xlab("Type of Community") + ylab("Echo Chamber Index") + ggtitle("Box and whisker Plot, Echo Chamber Index by Type")  + theme(legend.position="none", plot.title = element_text(hjust=0.5)) + scale_x_discrete(labels=c("P"="Political", "NP"="Non-Political"))
+
+#dev.off()
+```
+
+### Homogeneity of Variance test
+```{r}
+car::leveneTest(EC_Index ~ factor(type), df_rs)
+```
+
+## H2 
+
+## Anova, Tukey Test and Table 3.
+```{r}
+df_rs$Ideology <- recode(df_rs$ideology,"L"="Left-Wing","R"="Right-Wing","N"="Neutral","NP"="Non-Political")
+
+anov1 <- aov(EC_Index ~ Ideology, data=df_rs)
+anov1 %>% summary()
+
+tukey <- TukeyHSD(anov1)
+tukey <- tidy(tukey)
+tukey <- tukey[,-c(1,3)]
+kable(tukey,
+booktabs=T,col.names = c("Comparison",
+                           "Estimate",
+                           "C.I. Low",
+                           "C.I. High",
+                         "Adjusted p-value"),linesep="", format="latex", caption="Tukey HSD test", digits=3) %>%
+kable_styling(position="center") #%>% save_kable("TukeyTable.tex")
+```
+
+# Table 4
+```{r}
+pw_res <- pairwise.t.test(df_rs$EC_Index, df_rs$Ideology, p.adjust.method = "none")
+pw_pval<- data.frame(pw_res$p.value)
+
+
+kable(pw_pval,
+booktabs=T,linesep="", format="latex", caption="Pairwise t-test p-values, non-adjusted", digits=3) %>%
+kable_styling(position="center") #%>% save_kable("PwPvalTable.tex")
+
+
+```
+
+## Figure 7
+```{r}
+#tiff("Boxplot2.tiff", units="in", width=8, height=5, res=300)
+
+bp2colors <- c("#FC4E07","#00AFBB","#b680a8","darkgrey")
+ggboxplot(df_rs, x = "Ideology", y = "EC_Index",
+          ylab = "EC Index", xlab = "Type", color="Ideology", add="jitter",palette=bp2colors) + theme_bw() + xlab("Community Ideology") + ylab("Echo Chamber Index") + ggtitle("Box and Whiskers Plot, Echo Chamber Index by Ideology")  + theme(legend.position="none", plot.title = element_text(hjust=0.5)) + scale_x_discrete(labels=c("L"="Left-Wing","R"="Right-Wing","N"="Neutral" ,"NP"="Non-Political"))
+
+#dev.off()
+```
+
+## Homogeneity of variance (t-test requirement)
+```{r}
+df_rs$EC_Index%>% class()
+df_rs$EC_Index <- df_rs$EC_Index%>% as.numeric()
+car::leveneTest(EC_Index ~ factor(ideology), df_rs)
+bartlett.test(EC_Index ~ factor(ideology), df_rs)
+```
+
+# Appendix Material 
+
+```{r}
+# Show that there is not a massive difference between different measures of centrality in our dataset. 
+
+ggpairs(dfctl, columns = 2:ncol(dfctl))
+
+df_ind$Size <- unlist(size)
+
+# This is for the appendix. (Make it nicer!)
+Degree <- list()
+Eig <- list()
+Hub <- list()
+Authority <- list()
+Closeness <- list()
+Reach2 <- list()
+Reach3 <- list()
+Betweenness <- list()
+PageRank <- list()
+for (sub in totsubs_list) {
+    Degree <- append(Degree, degree(eval(parse(text=paste("g_",sub,"_ud",sep="")))))
+    Eig <- append(Eig, evcent(eval(parse(text=paste("g_",sub,"_ud",sep=""))))$vector)
+    Hub <- append(Hub, hub.score(eval(parse(text=paste("g_",sub,"_ud",sep=""))))$vector)
+    Authority <- append(Authority, authority.score(eval(parse(text=paste("g_",sub,"_ud",sep=""))))$vector)
+    Closeness <-append(Closeness, closeness(eval(parse(text=paste("g_",sub,"_ud",sep="")))))
+    Betweenness <- append(Degree, betweenness(eval(parse(text=paste("g_",sub,"_ud",sep="")))))
+    PageRank <- append(PageRank, page_rank(eval(parse(text=paste("g_",sub,"_ud",sep=""))))$vector)
+}
+
+```
+
+
+# PCA
+```{r}
+dfpc <- df_rs
+
+# Perform PCA analysis
+pcafit <- prcomp(dfpc[,2:6])
+
+# Principal components table
+PC_table <- data.frame(
+PC1=round(pcafit$rotation[,"PC1"],3),
+PC2=round(pcafit$rotation[,"PC2"],3))
+
+# Principal components table latex
+
+PC_table
+kable(PC_table,
+booktabs=T,linesep="", format="latex", digits=3) %>%
+kable_styling(position="center") %>% save_kable("PCTable.tex") 
+
+```
+
+## PCA weighted index
+```{r}
+# Extract the PCA weights (loadings) for each variable
+pca_w <- data.frame(pcafit$rotation)
+
+pca_w[1]
+pc1_w <- pca_w[1]
+
+# normalise weights to add up to 1
+normaliser <- 1/ (sum(pc1_w))
+
+pc1_nw <- (pc1_w*normaliser)
+
+# check that they sum up to one
+sum(pc1_nw)
+
+
+
+# Calculate the index using PCA weights and scores
+dfpc$EC_Index_PC <- ((dfpc$Gini*pc1_nw[1,1]) + (dfpc$Reciprocity*pc1_nw[2,1]) + (dfpc$Degree*pc1_nw[3,1]) + (dfpc$Cluster_sq*pc1_nw[4,1])+(dfpc$Size*pc1_nw[5,1]))
+
+
+# ggpairs with all indicators and ECIs
+ggpairs(dfpc, columns=c(7,11))
+g3 <-  ggpairs(dfpc, columns = c(2,3,4,5,7,11), lower = list(continuous = wrap(lowerFn, method = "loess",method2="lm"))) + theme_bw() + 
+  theme(strip.text.y = element_text(size = 8))
+g3
+
+# Normalise weights
+
+pc1_nwtp <- transpose(pc1_nw)
+colnames(pc1_nwtp) <- rownames(pc1_nw)
+pc1_nwtp 
+rownames(pc1_nwtp) <- "Normalised Weight"
+
+print(pc1_nwtp) # normalised weights
+
+kable(pc1_nwtp, booktabs=T,linesep="", format="latex") %>%
+kable_styling(position="center", full_width = F)# %>% save_kable("Normweights.tex") 
+
+```
+
+# Figure 8
+```{r}
+pca <- pcafit
+# Extract eigenvalues
+
+pca$sdev^2/sum(pca$sdev^2)
+
+
+screeplot(pcafit, type="line")
+
+x <-summary(pcafit)
+
+yplot <- summary(pcafit)$importance[2,]
+
+xplot <- c("PC1","PC2","PC3","PC4","PC5")
+
+dfplot <- data.frame(PC=xplot,Prop_var = yplot)
+
+#tiff("Screeplot.tiff", units="in", width=8, height=5, res=300)
+
+ggplot(dfplot, aes(y=Prop_var, x=PC, group=1)) + geom_point( col="#002147") + xlab("Principal Component") + ylab("Proportion of Variance Explained") + geom_line(linewidth=0.8, col="#002147") + theme_bw() + ylim(0,0.8)+ ggtitle("PCA Scree Plot") + theme(plot.title = element_text(hjust=0.5))
+
+#dev.off()
+
+
+```
+
+
+```{r}
+
+df_rs$Ideology <- recode(df_rs$ideology,"L"="Left-Wing","R"="Right-Wing","N"="Neutral","NP"="Non-Political")
+colors <-  c("Left-Wing" = "#FC4E07", "Right-Wing" = "#00AFBB", "Neutral" = "#b680a8", "Non-Political" = "grey")
+#png("IndexFigures.png", width=4000, height=2000, res=500)
+
+
+#tiff("ECIbySubandIdeology.tiff", units="in", width=8, height=5, res=300)
+
+ggplot(df_rs, aes(x = reorder(Subreddit,EC_Index),y = EC_Index, fill = Ideology)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = colors) +
+  labs(title = "Echo Chamber Index by Subreddit and Ideology",
+       x = "Subreddit",
+       y = "Echo Chamber Index") + theme_bw() +
+ theme(axis.text.x = element_text(angle = 45, hjust = 1),plot.title = element_text(hjust=0.5))
+#dev.off()
+
+```
+
+## Appendix Figures
+
+
+# Figure B.1
+
+```{r}
+df_ind$Cluster <- unlist(cluster)
+
+pd3 <- ggplot(df_ind, aes(x = Cluster, fill = "Clustering Coefficient")) +
+  geom_density(alpha = 0.5, fill="darkgrey") + xlab("Clustering Coefficient") + ylab("Density") + theme_bw()
+
+df_ind$Cluster <- unlist(cluster)
+pd4<- ggplot(df_ind) + geom_density(aes(x = Cluster_sq, fill = "Square root \nof Clustering \nCoefficient"), alpha = 0.5, fill="lightgrey") +
+  labs(fill = "Variable") + xlab("Square Root of Clustering Coefficient") + ylab("Density") +
+  theme_bw()
+
+#tiff("ClusteringCoefficientTransformation.tiff", units="in", width=8, height=5, res=300)
+
+gridExtra::grid.arrange(pd3,pd4, ncol=1, top="Clustering Coefficient Square Root Transformation")
+
+#dev.off()
+```
+# Figure B.2
+
+```{r}
+pd1 <- ggplot(df_ind, aes(x = Degree, fill = "Degree Centrality")) +
+  geom_density(alpha = 0.5, fill="darkgrey") + xlab("Degree Centrality") + ylab("Density") + theme_bw()
+pd1
+
+df_ind$Degree_sq <- sqrt(df_ind$Degree)
+
+pd2<- ggplot(df_ind) + geom_density(aes(x = Degree_sq, fill = "Square root of Degree Centrality"), alpha = 0.5, fill="lightgrey") +
+  labs(fill = "Variable") + xlab("Square Root of Degree Centrality") + ylab("Density") +
+  theme_bw()
+
+#tiff("DegreeCentralityTransformation.tiff", units="in", width=8, height=5, res=300)
+
+gridExtra::grid.arrange(pd1, pd2, top="Degree Centrality Transformation")
+
+#dev.off()
+
+df_ind <- subset(df_ind, select=-c(Degree_sq))
+```
+
+
+## Distribution Plots
+
+### Gini coefficient Distribution
+
+```{r}
+p1 <- ggplot(df_ind, aes(x=Gini)) + 
+  geom_histogram(binwidth=0.08, color="#FFFFFF", fill="#4c72b0") +
+  labs(title="Authorship Gini Distribution" ,y="Count") + xlab("Gini") +
+  geom_vline(xintercept = mean(df_ind$Gini), color="#002147", linetype="dashed", linewidth=0.8)+
+  annotate("text", x=(mean(df_ind$Gini)-0.1), y=16, label=paste("Mean =", round(mean(df_ind$Gini),3)), 
+           color="#002147", size=2.5, vjust=1, hjust=0) + 
+    geom_vline(xintercept = median(df_ind$Gini), color="blue", linetype="dashed", linewidth=0.8)+
+  annotate("text", x=(median(df_ind$Gini)+0.005), y=16, label=paste("Median =", round(median(df_ind$Gini),3)), 
+           color="blue", size=2.5, vjust=1, hjust=0) +
+  theme_bw() +
+  theme(axis.text=element_text(size=8),
+        axis.title=element_text(size=8,face="bold"),
+        plot.title=element_text(size=10,face="bold", hjust=0.5),
+        axis.line=element_line(size=0.5, color="black"),
+        axis.ticks=element_line(size=0.5, color="black"))
+
+p1
+
+```
+
+### Reciprocity Distribution
+
+```{r}
+p2<- ggplot(df_ind, aes(x=Reciprocity)) + 
+  geom_histogram(binwidth=0.09, color="#FFFFFF", fill="#4c72b0") +
+  labs(title="Reciprocity Distribution" ,y="Count") + xlab("Reciprocity") +
+  geom_vline(xintercept = mean(df_ind$Reciprocity), color="#002147", linetype="dashed", linewidth=0.8)+
+  annotate("text", x=(mean(df_ind$Reciprocity)-0.12), y=11, label=paste("Mean =", round(mean(df_ind$Reciprocity),3)), 
+           color="#002147", size=2.5, vjust=1, hjust=0) + 
+    geom_vline(xintercept = median(df_ind$Reciprocity), color="blue", linetype="dashed", linewidth=0.8)+
+  annotate("text", x=(median(df_ind$Reciprocity)+ 0.01), y=11, label=paste("Median =", round(median(df_ind$Reciprocity),3)), 
+           color="blue", size=2.5, vjust=1, hjust=0) + 
+  theme_bw() +
+  theme(axis.text=element_text(size=8),
+        axis.title=element_text(size=8,face="bold"),
+        plot.title=element_text(size=10,face="bold", hjust=0.5),
+        axis.line=element_line(size=0.5, color="black"),
+        axis.ticks=element_line(size=0.5, color="black"))
+```
+
+### Degree Centrality Distribution
+
+```{r}
+p3 <- ggplot(df_ind, aes(x=Degree)) + geom_histogram(binwidth=3.55, color="#FFFFFF", fill="#4c72b0") +  labs(title="Degree Centrality Distribution", y="Count") + xlab("Degree Centrality") +  geom_vline(xintercept = mean(df_ind$Degree), color="#002147", linetype="dashed", linewidth=0.8)+
+  annotate("text", x=(mean(df_ind$Degree)+0.33), y=11, label=paste("Mean =", round(mean(df_ind$Degree),3)), 
+           color="#002147", size=2.5, vjust=1, hjust=0) + 
+    geom_vline(xintercept = median(df_ind$Degree), color="blue", linetype="dashed", linewidth=0.8) +  annotate("text", x=(median(df_ind$Degree)-4.4), y=11, label=paste("Median =", round(median(df_ind$Degree),3)), 
+           color="blue", size=2.5, vjust=1, hjust=0) +
+    theme_bw() +
+  theme(axis.text=element_text(size=8),
+        axis.title=element_text(size=8,face="bold"),
+        plot.title=element_text(size=10,face="bold", hjust=0.5),
+        axis.line=element_line(size=0.5, color="black"),
+        axis.ticks=element_line(size=0.5, color="black"))
+
+
+```
+
+
+### Clustering coefficient distribution
+
+```{r}
+p4 <- ggplot(df_ind, aes(x=Cluster_sq)) + geom_histogram(binwidth=0.08, color="#FFFFFF", fill="#4c72b0") + labs(title="Clustering Coefficient Distribution" ,y="Count") + xlab("Square root of Clustering")+  geom_vline(xintercept = mean(df_ind$Cluster_sq), color="#002147", linetype="dashed", linewidth=0.8) +            annotate("text", x=(mean(df_ind$Cluster_sq)+0.01), y=15.5, label=paste("Median =", round(median(df_ind$Cluster_sq),3)), 
+           color="blue", size=2.5, vjust=1, hjust=0) + geom_vline(xintercept = median(df_ind$Cluster_sq), color="blue", linetype="dashed", linewidth=0.8) +  annotate("text", x=(median(df_ind$Cluster_sq)-0.09), y=15.5, label=paste("Mean =", round(mean(df_ind$Cluster_sq),3)), 
+           color="#002147", size=2.5, vjust=1, hjust=0) +
+  theme_bw() +
+  theme(axis.text=element_text(size=8),
+        axis.title=element_text(size=8,face="bold"),
+        plot.title=element_text(size=10,face="bold", hjust=0.5),
+        axis.line=element_line(size=0.5, color="black"),
+        axis.ticks=element_line(size=0.5, color="black"))
+
+```
+
+```{r}
+#tiff("IndDistPlot.tiff", units="in", width=8, height=5, res=300)
+
+title1=text_grob("Indicators Distributions", size = 13, face = "bold") 
+gridExtra::grid.arrange(p1,p2, p3, p4, top=title1)
+
+#dev.off()
+```
+
+
+
+### Non-parametric tests
+
+```{r}
+model <- aov(index ~ ideology + sizers, data = testdf_rs)
+mk <- kruskal.test(index ~ ideology, data = testdf_rs)
+model %>% summary()
+mk
+
+dunn <- dunn.test(testdf_rs$index,testdf_rs$ideology)
+```
+
+
+```{r}
+df_ft <- df_rs
+df_ft$EC_Index_PC <- dfpc$EC_Index_PC
+df_ft$Type <- recode(df_ft$type, "P"="Political", "NP"="Non-Political")
+rownames(df_ft) <- df_ft$Subreddit
+df_ft <- subset(df_ft, select=-c(Subreddit, ideology, type))
+df_ft
+kable(df_ft, booktabs=T,linesep="", format="latex", digits=3, caption="Total Results, by Subreddit") %>%
+kable_styling(position="center", full_width = F) #%>% save_kable("TotalResultsTable.tex")
+
+```
+

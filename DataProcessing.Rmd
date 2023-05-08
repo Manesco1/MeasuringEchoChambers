@@ -1,0 +1,371 @@
+---
+title: "Subredditcsv"
+output: html_document
+date: "2023-04-12"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyr)
+library(dplyr)
+```
+
+## List of Bots
+```{r}
+botlist <<- list("Canna_Tips",
+    "KickOpenTheDoorBot",
+    "BigJets",
+    "mayo_tipbot",
+    "properu",
+    "MrTechnodad",
+    "WanderingDwarfMiner",
+    "ChoosingGameBot",
+    "nano_tipper",
+    "Competitive_Bell501",
+    "Banano_Tipbot",
+    "AfonsoHenriquesBot",
+    "SilentRanger42",
+    "songacronymbot",
+    "nano_tips",
+    "GifReversingBot",
+    "mkemalataturk",
+    "RayDeeUx",
+    "fuck_moash_bot",
+    "EyeBleacherBot",
+    "Escilas",
+    "gme_tweets",
+    "pekofy_bot",
+    "ReverseCaptioningBot",
+    "Technoblade-Bot",
+    "RayeOfDisappointment",
+    "Technothereddit",
+    "Zoruda",
+    "StonkCorrectionBot",
+    "Clean_Link_Bot",
+    "EnoughSpamAlreadyBot",
+    "stabbot",
+    "SaveThisVIdeo",
+    "redditmixer",
+    "The-Paranoid-Android",
+    "masterhacker_bot",
+    "TumblrBotDetectBot",
+    "The_Lopen_bot",
+    "Tom_Bot-Badil",
+    "SaveVideo",
+    "RavBot",
+    "mlapibot",
+    "sodogetip",
+    "RealTweetOrNotBot",
+    "MTGLardFetcher",
+    "MichaelRichardsBot",
+    "ShungiteBot",
+    "savevideobot",
+    "ScamWatchReporter",
+    "TechnoNeverDies_bot",
+    "animalfacts-bot",
+    "Burnsivxx",
+    "auddbot",
+    "KoalaBear84",
+    "VredditDownloader",
+    "WikiSummarizerBot",
+    "gifendore",
+    "LivePDBot",
+    "fbk_glasses_bot",
+    "MILBitchBot",
+    "Spartan2470",
+    "patricktomlinson",
+    "Shoresy___Bot",
+    "robocosannnn",
+    "NoGoogleAMPBot",
+    "morejpeg_auto",
+    "KemonomimiCheerUpBot",
+    "CummyBot2000",
+    "Treima",
+    "herbibot",
+    "AnimeSauceBot",
+    "link_cleaner_bot",
+    "WikiMobileLinkBot",
+    "BrozzerAbdullahBot",
+    "coinfeeds-bot",
+    "Literally1984_bot",
+    "objection-bot",
+    "DeepFryBot",
+    "gandalf-bot",
+    "twitterlinkbot",
+    "RwampyBoi",
+    "TitleLinkHelperBot",
+    "vredditshare",
+    "Gonk-Bot",
+    "Title2ImageBot",
+    "Fuck_ESPN_Bot",
+    "Gfycat_Details_Fixer",
+    "NanoraBot",
+    "Roboragi",
+    "AntiGoogleAmpBot",
+    "TonyWonder-BOT",
+    "lexAutomatarium",
+    "xkcd_transcriber",
+    "RecipeCart",
+    "furbot_",
+    "sixdigitbot",
+    "respectthread_bot",
+    "redditspeedbot",
+    "FlagWaverBotReborn",
+    "WikiTextBot",
+    "reply-guy-bot",
+    "HerSeyeRezAlanAdam",
+    "exponant",
+    "SnooRawrBot",
+    "timestamp_bot",
+    "vReddit_Player_Bot",
+    "wikipedia_text_bot",
+    "BrokenRecordBot",
+    "Dirtyfox3000",
+    "BananaOniBot",
+    "TitleToImageBot",
+    "golden-god-bot",
+    "gimli-bot",
+    "basedcount_bot",
+    "hasfodel",
+    "bobby-b-bot",
+    "ILinkNSFWSubreddits",
+    "Dalton-Bot",
+    "AzorAhaiBot",
+    "gifv-bot",
+    "fabia-bot",
+    "NFLVideoConverterBot",
+    "karSevak2",
+    "knightttime",
+    "OctopusFunFacts",
+    "freebanbot_squirrel",
+    "ZakBagansBot",
+    "Dripbot8",
+    "albus-dumbledore-bot",
+    "Apex_Bot",
+    "WikiHowLinkBot",
+    "RemindMeBot",
+    "PayRespects-Bot",
+    "ze-robot",
+    "nHentaiTagBot",
+    "ASCIICodecBot",
+    "murplexia",
+    "JustAnAlpacaBot",
+    "Theoden-Bot",
+    "omedetou_bot",
+    "genzo_wakabayashi_94",
+    "vredditmirrorbot",
+    "DispatchBot",
+    "PewdStatus",
+    "image_linker_bot",
+    "AmputatorBot",
+    "freebanbot_spider",
+    "modlinkbot",
+    "ama_compiler_bot",
+    "HootyBot",
+    "RoommatesBot",
+    "SEB-PHYLOBOT",
+    "theotherotherhand",
+    "DankBotInator",
+    "Hawkeye422",
+    "ILikeTasks",
+    "ShadowBanCheck-Bot",
+    "same_post_bot",
+    "AnimeSourceBot",
+    "StupendousBot",
+    "freebanbot_planter",
+    "Media_Source_Bot",
+    "dd_responses_bot",
+    "darnbot",
+    "cookie_b0t",
+    "Catebot",
+    "autotldr",
+    "FileTheseBirdsBot",
+    "h-bot9000",
+    "SteamNewsBot",
+    "have_a_nice_day_bot",
+    "gen_grievous_bot",
+    "OrangeFactsBot",
+    "CaudalPeduncle",
+    "RedditStreamable",
+    "goal_bot",
+    "MassdropBot",
+    "TwitterToStreamable",
+    "MLBVideoConverterBot",
+    "SFF_Robot",
+    "boyan-o-meter-bot",
+    "papa_bless_bot",
+    "suipiss",
+    "Bot_Bustinator",
+    "Impossible-Cod-3946",
+    "srgrafo_edit_bot",
+    "inshaAllah_bot",
+    "MarkdownShadowBot",
+    "TitsBot",
+    "pewdsvstseries_bot",
+    "Mini-Z",
+    "ODScanner",
+    "freebanbot_lion",
+    "sasinbot",
+    "RedditMP4Bot",
+    "wholesomee_bot",
+    "FatFingerHelperBot",
+    "OriginalPostSearcher",
+    "PetrosianBot",
+    "freebanbot_wukong",
+    "JiffierBot",
+    "CountdownBot12",
+    "PTHero",
+    "setlistbot",
+    "amazon-converter-bot",
+    "PaceConverterBot",
+    "morse-bot",
+    "anti-rte-bot",
+    "songfinderbot",
+    "MaxImageBot",
+    "HelperBot_",
+    "tmcredditbot",
+    "Game_Info_Bot",
+    "Superstonk-Flairy",
+    "Sushi_chan18",
+    "ryankavanaughbot",
+    "arsene_wenger_bot",
+    "fishy_5",
+    "Good_Human_Bot_v2",
+    "decode-binary",
+    "tweetlinker",
+    "Blub-Blub44",
+    "McLuvinMan",
+    "Roid_Rage_Smurf",
+    "timee_bot",
+    "ThePrequelMemesBot",
+    "haikusbot",
+    "darthplagueisbot",
+    "InsiderMemeBot",
+    "Gif_Slowing_Bot",
+    "WikipediaSummary",
+    "bubblewrap_bot",
+    "outline_link_bot",
+    "AFexcuses",
+    "aqp-bot",
+    "GetVideoBot",
+    "tweet_transcriberbot",
+    "ww-currency-bot",
+    "Tasty-Shame-7957",
+    "Tumbler41",
+    "grc_tip_bot",
+    "Factorial-Bot",
+    "BernieInvitedMe",
+    "BlueprintBot",
+    "SpitsOutCereal",
+    "amplifyoucan",
+    "deck-code-bot",
+    "find-song",
+    "hearthscan-bot",
+    "uraharaBot",
+    "[deleted]",
+    "AutoModerator",
+    "socialism-ModTeam",
+    "PoliticsModeratorBot",
+    "groupbot",
+    "jobautomator",
+    "ModPolBot",
+    "PoliticsModeratorBot",
+    "XboxSeriesX-ModTeam",
+    "[deleted]",
+    "Amd-ModTeam",
+    "PoliticalDiscussion-ModTeam"
+     )
+```
+
+
+## List of Subreddits by ideology
+
+```{r}
+LW <- list("socialism","LateStageCapitalism","SandersForPresident","antiwork","democrats")
+
+RW <- list("Conservative","Libertarian","The_Mueller","neoliberal","Republican")
+
+N <- list("moderatepolitics","geopolitics","Foodforthought","PoliticalDiscussion","politics")
+
+C <- list("MonsterHunter","chelseafc","GlobalOffensive","XboxSeriesX","Accounting","okbuddychicanery","ShingekiNoKyojin","woodworking", "LosAngeles","gadgets","realhousewives","travel","Watches","MechanicAdvice","Amd")
+
+
+
+```
+
+
+## Data Processing Function
+
+```{r}
+subscsv <- function(group, comments_csv, submissions_csv){
+for (subreddit in group) {
+# Subset by subreddit
+data <- read.csv(comments_csv)
+subms <- read.csv(submissions_csv)
+###
+data <- data[data$subreddit==subreddit,]
+subms <- subms[subms$subreddit==subreddit,]
+
+# Remove bot submissions 
+data <-  data[!data$author %in% botlist, ]
+data <- data[!data$body=="[removed]",]
+
+#  Match Parent Comment IDs to Authors
+data$p_id <- tolower(data$p_id)
+  
+data$p_id<- ifelse(data$p_id=="0", data$link_id,   data$p_id)
+  
+data$p_id <- gsub("^.*?_","",data$p_id)
+  
+data$p_row <- match(data$p_id, data$id, nomatch = NA_integer_, incomparables = NULL)
+  
+data$p_auth <- data[data$p_row,"author"]
+  
+
+# Merge comments and submissions 
+fulldata <- full_join(data, subms , by = "id")
+
+# Create single author column
+fulldata <- fulldata %>% mutate(author = coalesce(author.x,author.y))
+
+
+# Find matching authors of parent submissions for top comments
+fulldata$par_row <- match(fulldata$p_id, fulldata$id, nomatch = NA_integer_, incomparables = NULL)
+
+fulldata$p_auth <- fulldata[fulldata$par_row,"author"]
+
+# Create single score column
+fulldata <- fulldata %>% mutate(score = coalesce(score.x,score.y))
+
+filename <- paste(subreddit,".csv",sep="")
+
+write.csv(fulldata,filename, row.names=FALSE)
+
+}
+}
+
+```
+
+
+# Create Subreddit csv files 
+
+```{r}
+# Left Wing
+subscsv(LW, "LW_Nov_to_Feb_comments_decoded.csv","LW_Nov_to_Feb_submissions.csv")
+
+# Right Wing
+subscsv(RW, "RW_Nov_to_Feb_comments_decoded.csv","RW_Nov_to_Feb_submissions.csv")
+
+# Neutral
+subscsv(N, "N_Nov_to_Feb_comments_decoded.csv","N_Nov_to_Feb_submissions.csv")
+
+# Non-Political
+subscsv(C, "C_Nov_to_Feb_comments_decoded.csv","C_Nov_to_Feb_submissions.csv")
+
+
+```
+
+

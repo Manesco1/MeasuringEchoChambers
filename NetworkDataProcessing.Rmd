@@ -1,0 +1,96 @@
+---
+title: "Network Data Processing"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(dplyr)
+library(tidyr)
+```
+
+## Network Processing Function
+
+```{r}
+net_create <- function(subreddit, edges_filename, nodes_filename) {
+  
+library(tidyr)
+library(dplyr)
+
+fulldata <- read.csv(subreddit)
+# Join scores
+score<- ave(fulldata$score, fulldata$author,FUN=sum)
+
+# Create Edges, omitting NA values 
+
+edges <- fulldata[,c("author","p_auth")]
+print(paste(sum(is.na(edges)),"out of", nrow(edges),"NAs Removed"))
+edges <- edges %>% na.omit()
+  
+# Create nodes and Assign score attribute to nodes
+nodes_1 <- data.frame(fulldata$author,score) %>% distinct()
+
+
+# Remove nodes with no edges
+nodes_1 <-  nodes_1[!nodes_1$fulldata.author %in% edges, ]
+
+
+# Add weights based on number of directed interactions between every pair
+
+edges_wt <- edges %>% group_by(author, p_auth) %>%
+    summarize(Count = n())
+
+
+# Specify type of edge as Directed
+edges_wt$Type <- "Directed"
+
+# Change Column names 
+colnames(edges_wt) <- c("Source","Target","Weight","Type")
+
+# remove authors with less than 4 comments
+edges_wt <- edges_wt %>% 
+  group_by(Source) %>% 
+  filter(n() >= 4)
+
+# Remove self edges
+edges_wt <- edges_wt[!(edges_wt$Source==edges_wt$Target),]
+
+# Keep relevant nodes only and reassign score
+
+nodes_unique <- as.data.frame(unique(edges_wt$Source))
+colnames(nodes_unique) <- "names"
+
+nodes_unique2 <- as.data.frame(unique(edges_wt$Target))
+colnames(nodes_unique2) <- "names"
+
+nodes_unique <- rbind(nodes_unique, nodes_unique2)
+
+nodes_unique <- unique(nodes_unique)
+
+nodes_sc <- data.frame(nodes_unique)
+
+nodes_sc$score <- nodes_1$score[match(nodes_sc$names, nodes_1$fulldata.author)]
+
+colnames(nodes_sc) <- c("Node","Score")
+
+# Write csv files
+write.csv(edges_wt, edges_filename, row.names=FALSE)
+write.csv(nodes_sc, nodes_filename, row.names=FALSE)
+
+}
+```
+
+## Create networks for each subreddit 
+
+```{r}
+totsubs_list <- list("socialism","LateStageCapitalism","SandersForPresident","antiwork","democrats","Conservative","Libertarian","The_Mueller","neoliberal","Republican","moderatepolitics","geopolitics","Foodforthought","PoliticalDiscussion","politics", "MonsterHunter","chelseafc","GlobalOffensive","ShingekiNoKyojin","XboxSeriesX","Accounting","woodworking","okbuddychicanery","LosAngeles","gadgets","realhousewives","travel","Watches","MechanicAdvice","Amd")
+
+
+for (sub in totsubs_list) {
+  net_create(subreddit = paste(sub, ".csv",sep=""),edges_filename = paste("Edges_",sub,".csv",sep=""), nodes_filename = paste("Nodes_",sub,".csv",sep=""))
+}
+```
+
