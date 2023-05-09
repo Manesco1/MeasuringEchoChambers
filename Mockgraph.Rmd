@@ -1,0 +1,43 @@
+---
+title: "mockgraph"
+output: html_document
+date: "2023-04-28"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(igraph)
+```
+
+```{r}
+set.seed(123)
+# create graph 
+g <- graph(edges=c(1,2,1,4,1,5,2,6,4,3,4,5,2,3,2,1,6,3,3,6,7,1,4,7,7,3), directed=TRUE)
+V(g)$name <- c(1:7)
+
+
+#random weights
+E(g)$weight <- sample(1:4, ecount(g), replace=TRUE)
+
+# save
+#png("igraph_random_weights.png", width=3000, height=3000, res=500)
+
+# plot
+plot(g, edge.label=E(g)$weight, edge.arrow.size=1.2, layout=layout_with_kk(g,dim=2), edge.width= (E(g)$weight * 1.5),
+vertex.color="#0276ab", vertex.size=30, vertex.frame.color= "lightblue", vertex.label.color="white", edge.label.color="black", edge.color="#f05a5b")
+
+#dev.off()
+```
+
+
+```{r}
+# show adjacency matrix 
+#print(get.adjacency(g, weights=E(g)$weight))
+as_adjacency_matrix(g, attr="weight")
+```
+
+
+
