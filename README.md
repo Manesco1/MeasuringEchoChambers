@@ -14,3 +14,7 @@ The Analysis is in Analysis.Rmd
 
 I have done my best to comment most of the code, though I might have missed something. Please get in touch at ffmc2016[at]gmail[dot]com if there are any perplexities about the code.
 
+### Figure 2
+
+The creation of mock graph in Figure 2 is shown in Mockgraph.R
+
