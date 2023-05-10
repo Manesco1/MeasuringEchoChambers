@@ -119,7 +119,10 @@ controlsubslist <- list("GlobalOffensive",
                         "  cyberpunkgame"
 )
 
-random15 <- sample(controlsubslist, 15)   
+random15 <- sample(controlsubslist, 15) 
+print(random15)
+
+# AskOuija and Replika must be replaced: AskOuija is a forum in which users only give single letter answers (as in an ouija board) and Replika contains NSFW/explicit content that must have been missed by the site generating this list (subredditstats.com)
 
 newsample  <- setdiff(controlsubslist, random15)
 
