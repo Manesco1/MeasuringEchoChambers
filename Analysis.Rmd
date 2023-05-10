@@ -31,11 +31,11 @@ library(broom)
 
 # Create Network objects
 ```{r}
-## Create directed graphs
+## Create graphs
 
 totsubs_list <- list("socialism","LateStageCapitalism","SandersForPresident","antiwork","democrats","Conservative","Libertarian","The_Mueller","neoliberal","Republican","Foodforthought","geopolitics","moderatepolitics","PoliticalDiscussion","politics", "MonsterHunter","chelseafc","GlobalOffensive","ShingekiNoKyojin","XboxSeriesX","Accounting","woodworking","okbuddychicanery","LosAngeles","gadgets","realhousewives","travel","Watches","MechanicAdvice","Amd")
 
-
+# Create Directed graphs from the csv files obtained in "NetworkDataProcessing.Rmd".
 for(sub in totsubs_list) {
   edges <- read.csv(paste("Edges_",sub,".csv",sep=""))
   nodes <- read.csv(paste("Nodes_",sub,".csv",sep=""))
@@ -61,6 +61,7 @@ fulldata <- read.csv(subreddit)
 
 countcomms <- tally(group_by(fulldata, author))
 
+# exclude authors with less than 5 comments (as in network)
 cc4 <- countcomms[countcomms$n > 4,]
 
 Gini(cc4$n, unbiased=F)
@@ -70,7 +71,8 @@ Gini(cc4$n, unbiased=F)
 # Reciprocity 
 
 rho_calc <- function(g){
-  
+
+# Garlaschelli and loffredo definition
 r <- igraph::reciprocity(g)
 a <- ecount(g)/(vcount(g)*(vcount(g)-1))
 rho <- (r-a)/(1-a)
@@ -78,7 +80,7 @@ return(rho)
 
 }
 
-# Rescale 
+# Rescale (for ease of use later, to rescale from 0 to 1 rather than from 0 to 100)
 RS <- function(x){
   rescale(x, to=c(0,1))
 }
@@ -92,6 +94,7 @@ RS <- function(x){
 Sublist <- list()
 GiniCoefficient <- list()
 
+# Gini coefficient for each subreddit
 for (sub in totsubs_list) {
   Sublist <- append(Sublist, sub)
   GiniCoefficient <- append(GiniCoefficient, Gini_sub(paste(sub,".csv",sep="")))
@@ -104,6 +107,7 @@ df_ind <- data.frame(Subreddit=unlist(Sublist), Gini=unlist(GiniCoefficient))
 ## Reciprocity
 
 ```{r}
+# reciprocity for each subreddit
 rec <- list()
 for (sub in totsubs_list) {
   rec <- append(rec, rho_calc(eval(parse(text=paste("g_",sub,sep="")))))
@@ -117,19 +121,19 @@ df_ind$Reciprocity<- unlist(rec)
 ## Degree Centrality
 
 ```{r}
+# degree centrality for each subreddit
 deg <- list()
 for (sub in totsubs_list) {
   deg <- append(deg, mean(degree(eval(parse(text=paste("g_",sub,sep=""))))))
 }
 df_ind$Degree <- unlist(deg)
 
-df_ind$Degree %>% hist()
-
 ```
 
 ## Clustering
 
 ```{r}
+# Global Clustering Coefficient (transitivity) for each subreddit
 cluster <- list()
 for (sub in totsubs_list) {
   cluster <- append(cluster, transitivity(type="global", eval(parse(text=paste("g_",sub,"_ud",sep="")))))
@@ -145,6 +149,7 @@ df_ind <- subset(df_ind, select=-(Cluster))
 
 ## Size (check)
 ```{r}
+# Size for each subreddit (robustness check 1 (4.2.3.))
 size <- list()
 for (sub in totsubs_list) {
   size<- append(size, length(eval(parse(text=paste("g_",sub,sep="")))))
@@ -154,7 +159,7 @@ df_ind$Size <- unlist(size)
 
 ```
 
-## Summary Table A.1
+## Summary Table B.1
 
 ```{r}
 rnd3 <- function(x){
@@ -232,9 +237,10 @@ df_ind[which.min(df_ind$Size),]
 ```
 
 
-# Correlations
+# Figure 3 (Pairwise Correlation)
 
 ```{r}
+
 lowerFn <- function(data, mapping, method = "lm", method2="lm", ...) {
   p <- ggplot(data = data, mapping = mapping) +
     geom_point(colour = "black") +
@@ -264,8 +270,6 @@ g
 
 ```{r}
 df_ind$Size <- as.numeric(df_ind$Size)
-df_ind2<- subset(df_ind, select=-c(Cluster))
-df_rs <- df_ind2
 
 df_rs
 df_rs$Gini <- as.numeric(RS(df_rs$Gini))
@@ -324,7 +328,7 @@ df_NP_R <- df_rs[df_rs$ideology=="NP" | df_rs$ideology=="R",]
 
 ```
 
-## Index Descriptive statistics
+## Table 1
 
 ```{r}
 
@@ -366,6 +370,26 @@ cor.test(df_rs$Cluster_sq, df_rs$EC_Index) #***
 
 kable(dftab2, booktabs=T,linesep="", format="latex", caption="Index and Rescaled Indicators, Descriptive Statistics", digits=3) %>%
 kable_styling(position="center", full_width = F) %>% save_kable("TableDesc2v2.tex") 
+```
+
+
+# Figure 4
+```{r}
+df_rs3 <- df_rs
+df_rs3$Ideology <- recode(df_rs3$ideology,"L"="Left-Wing","R"="Right-Wing","N"="Neutral","NP"="Non-Political")
+colors <-  c("Left-Wing" = "#FC4E07", "Right-Wing" = "#00AFBB", "Neutral" = "#b680a8", "Non-Political" = "grey")
+
+#tiff("ECIbySubandIdeology.tiff", units="in", width=8, height=5, res=300)
+
+ggplot(df_rs3, aes(x = reorder(Subreddit,EC_Index),y = EC_Index, fill = Ideology)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = colors) +
+  labs(title = "Echo Chamber Index by Subreddit and Ideology",
+       x = "Subreddit",
+       y = "Echo Chamber Index") + theme_bw() +
+ theme(axis.text.x = element_text(angle = 45, hjust = 1),plot.title = element_text(hjust=0.5))
+#dev.off()
+
 ```
 
 ## Figure 5
@@ -410,10 +434,11 @@ kable_styling(position="center")# %>% save_kable("SizeCorrelationTable.tex")
 
 # Hypothesis Testing 
 
-## H1
+## H1 and Table 2
 ```{r}
 df_rs$EC_Index <- as.numeric(df_rs$EC_Index)
 
+#political and non-political
 df_P <- df_rs[df_rs$type=="P",]
 df_NP <- df_rs[df_rs$type=="NP",]
 
@@ -422,8 +447,8 @@ result <- t.test(EC_Index ~ type, data = df_rs)
 dfttesttab <- data.frame(
   statistic = result$statistic,
   p_value = result$p.value,
-  conf_int_low = result$conf.int[1],
-  conf_int_high = result$conf.int[2]
+  ci_low = result$conf.int[1],
+  ci_high= result$conf.int[2]
 )
 
 # non-parametric test 
@@ -499,46 +524,6 @@ ggboxplot(df_rs, x = "Ideology", y = "EC_Index",
 #dev.off()
 ```
 
-## Homogeneity of variance (t-test requirement)
-```{r}
-df_rs$EC_Index%>% class()
-df_rs$EC_Index <- df_rs$EC_Index%>% as.numeric()
-car::leveneTest(EC_Index ~ factor(ideology), df_rs)
-bartlett.test(EC_Index ~ factor(ideology), df_rs)
-```
-
-# Appendix Material 
-
-```{r}
-# Show that there is not a massive difference between different measures of centrality in our dataset. 
-
-ggpairs(dfctl, columns = 2:ncol(dfctl))
-
-df_ind$Size <- unlist(size)
-
-# This is for the appendix. (Make it nicer!)
-Degree <- list()
-Eig <- list()
-Hub <- list()
-Authority <- list()
-Closeness <- list()
-Reach2 <- list()
-Reach3 <- list()
-Betweenness <- list()
-PageRank <- list()
-for (sub in totsubs_list) {
-    Degree <- append(Degree, degree(eval(parse(text=paste("g_",sub,"_ud",sep="")))))
-    Eig <- append(Eig, evcent(eval(parse(text=paste("g_",sub,"_ud",sep=""))))$vector)
-    Hub <- append(Hub, hub.score(eval(parse(text=paste("g_",sub,"_ud",sep=""))))$vector)
-    Authority <- append(Authority, authority.score(eval(parse(text=paste("g_",sub,"_ud",sep=""))))$vector)
-    Closeness <-append(Closeness, closeness(eval(parse(text=paste("g_",sub,"_ud",sep="")))))
-    Betweenness <- append(Degree, betweenness(eval(parse(text=paste("g_",sub,"_ud",sep="")))))
-    PageRank <- append(PageRank, page_rank(eval(parse(text=paste("g_",sub,"_ud",sep=""))))$vector)
-}
-
-```
-
-
 # PCA
 ```{r}
 dfpc <- df_rs
@@ -588,7 +573,7 @@ g3 <-  ggpairs(dfpc, columns = c(2,3,4,5,7,11), lower = list(continuous = wrap(l
   theme(strip.text.y = element_text(size = 8))
 g3
 
-# Normalise weights
+# Normalised weights (footnote 4)
 
 pc1_nwtp <- transpose(pc1_nw)
 colnames(pc1_nwtp) <- rownames(pc1_nw)
@@ -602,7 +587,7 @@ kable_styling(position="center", full_width = F)# %>% save_kable("Normweights.te
 
 ```
 
-# Figure 8
+# Figure 8 (Scree Plot)
 ```{r}
 pca <- pcafit
 # Extract eigenvalues
@@ -629,26 +614,6 @@ ggplot(dfplot, aes(y=Prop_var, x=PC, group=1)) + geom_point( col="#002147") + xl
 
 ```
 
-
-```{r}
-
-df_rs$Ideology <- recode(df_rs$ideology,"L"="Left-Wing","R"="Right-Wing","N"="Neutral","NP"="Non-Political")
-colors <-  c("Left-Wing" = "#FC4E07", "Right-Wing" = "#00AFBB", "Neutral" = "#b680a8", "Non-Political" = "grey")
-#png("IndexFigures.png", width=4000, height=2000, res=500)
-
-
-#tiff("ECIbySubandIdeology.tiff", units="in", width=8, height=5, res=300)
-
-ggplot(df_rs, aes(x = reorder(Subreddit,EC_Index),y = EC_Index, fill = Ideology)) +
-  geom_bar(stat = "identity") +
-  scale_fill_manual(values = colors) +
-  labs(title = "Echo Chamber Index by Subreddit and Ideology",
-       x = "Subreddit",
-       y = "Echo Chamber Index") + theme_bw() +
- theme(axis.text.x = element_text(angle = 45, hjust = 1),plot.title = element_text(hjust=0.5))
-#dev.off()
-
-```
 
 ## Appendix Figures
 
@@ -783,20 +748,7 @@ gridExtra::grid.arrange(p1,p2, p3, p4, top=title1)
 #dev.off()
 ```
 
-
-
-### Non-parametric tests
-
-```{r}
-model <- aov(index ~ ideology + sizers, data = testdf_rs)
-mk <- kruskal.test(index ~ ideology, data = testdf_rs)
-model %>% summary()
-mk
-
-dunn <- dunn.test(testdf_rs$index,testdf_rs$ideology)
-```
-
-
+# Figure B.2
 ```{r}
 df_ft <- df_rs
 df_ft$EC_Index_PC <- dfpc$EC_Index_PC

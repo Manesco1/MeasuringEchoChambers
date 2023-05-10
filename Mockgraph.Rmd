@@ -35,7 +35,6 @@ vertex.color="#0276ab", vertex.size=30, vertex.frame.color= "lightblue", vertex.
 
 ```{r}
 # show adjacency matrix 
-#print(get.adjacency(g, weights=E(g)$weight))
 as_adjacency_matrix(g, attr="weight")
 ```
 

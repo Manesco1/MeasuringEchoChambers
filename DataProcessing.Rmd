@@ -15,6 +15,7 @@ library(dplyr)
 
 ## List of Bots
 ```{r}
+# list of the most popular reddit bots, from https://botrank.pastimes.eu/, and subreddit specific bots (e.g., Socialism-ModTeam), from manual inspection of each subreddit.
 botlist <<- list("Canna_Tips",
     "KickOpenTheDoorBot",
     "BigJets",
